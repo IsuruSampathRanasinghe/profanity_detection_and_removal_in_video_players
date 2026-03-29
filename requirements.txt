@@ -1,0 +1,7 @@
+moviepy==1.0.3
+openai-whisper
+pydub==0.25.1
+opencv-python==4.8.1.78
+pillow==10.1.0
+numpy==1.24.3
+pygame==2.6.1
