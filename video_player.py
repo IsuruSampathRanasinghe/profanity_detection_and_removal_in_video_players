@@ -2,7 +2,7 @@ import os
 import time
 import threading
 import tkinter as tk
-from tkinter import filedialog, messagebox
+from tkinter import filedialog, messagebox, ttk
 
 import cv2
 import pygame
@@ -36,6 +36,7 @@ class VideoPlayer:
         self.filtering_in_progress = False
         self.whisper_model = None
         self.profanity_words = set()
+        self.filter_mode = tk.StringVar(value="mute")
 
         self.is_playing = False
         self.current_frame = 0
@@ -45,6 +46,7 @@ class VideoPlayer:
         self.playback_start_time = 0.0
         self.playback_start_frame = 0
         self.volume = 1.0
+        self.processing_progress = tk.DoubleVar(value=0.0)
 
         self._build_ui()
 
@@ -193,6 +195,44 @@ class VideoPlayer:
         self.profanity_count_label = tk.Label(profanity_wrap, text="Profanity list: 0 words", fg="#666")
         self.profanity_count_label.pack(side=tk.LEFT, padx=10)
 
+        mode_wrap = tk.Frame(self.root)
+        mode_wrap.pack(fill=tk.X, padx=10, pady=(0, 8))
+
+        tk.Label(mode_wrap, text="Filter Mode:").pack(side=tk.LEFT, padx=(0, 8))
+
+        tk.Radiobutton(
+            mode_wrap,
+            text="Mute",
+            variable=self.filter_mode,
+            value="mute",
+            fg="#333",
+        ).pack(side=tk.LEFT, padx=4)
+
+        tk.Radiobutton(
+            mode_wrap,
+            text="Beep",
+            variable=self.filter_mode,
+            value="beep",
+            fg="#333",
+        ).pack(side=tk.LEFT, padx=4)
+
+        processing_wrap = tk.Frame(self.root)
+        processing_wrap.pack(fill=tk.X, padx=10, pady=(0, 10))
+
+        tk.Label(processing_wrap, text="Processing Progress:").pack(side=tk.LEFT, padx=(0, 8))
+
+        self.processing_bar = ttk.Progressbar(
+            processing_wrap,
+            orient=tk.HORIZONTAL,
+            mode="determinate",
+            maximum=100,
+            variable=self.processing_progress,
+        )
+        self.processing_bar.pack(side=tk.LEFT, fill=tk.X, expand=True)
+
+        self.processing_pct_label = tk.Label(processing_wrap, text="0%", width=5, fg="#666")
+        self.processing_pct_label.pack(side=tk.RIGHT, padx=(8, 0))
+
         self._load_profanity_words()
 
     def open_video(self):
@@ -244,7 +284,7 @@ class VideoPlayer:
             return
 
         self.filtering_in_progress = True
-        self._set_filter_status("Filter: processing...", "#ef6c00")
+        self._set_processing_progress(0, "Preparing...", "#ef6c00")
 
         worker = threading.Thread(target=self._filter_profanity_worker, daemon=True)
         worker.start()
@@ -263,7 +303,7 @@ class VideoPlayer:
         video_clip = None
         clean_audio_clip = None
         try:
-            self._set_filter_status("Filter: extracting audio...", "#ef6c00")
+            self._set_processing_progress(10, "Extracting audio...", "#ef6c00")
             video_clip = VideoFileClip(input_video)
             if video_clip.audio is None:
                 raise ValueError("Selected video has no audio track")
@@ -275,7 +315,7 @@ class VideoPlayer:
                 logger=None,
             )
 
-            self._set_filter_status("Filter: transcribing...", "#ef6c00")
+            self._set_processing_progress(35, "Transcribing...", "#ef6c00")
             if self.whisper_model is None:
                 self.whisper_model = whisper.load_model("base")
 
@@ -292,18 +332,29 @@ class VideoPlayer:
                 if any(word in segment_text for word in bad_words):
                     bad_word_times.append((start, end))
 
-            self._set_filter_status("Filter: muting segments...", "#ef6c00")
+            mode = self.filter_mode.get()
+            status_text = "Filtering... (mute)" if mode == "mute" else "Filtering... (beep)"
+            self._set_processing_progress(60, status_text, "#ef6c00")
             audio = AudioSegment.from_wav(extracted_audio_path)
 
-            for start, end in bad_word_times:
+            total_ranges = max(1, len(bad_word_times))
+            for idx, (start, end) in enumerate(bad_word_times, start=1):
                 start_ms = int(start * 1000)
                 end_ms = int(end * 1000)
-                silence = AudioSegment.silent(duration=max(0, end_ms - start_ms))
-                audio = audio[:start_ms] + silence + audio[end_ms:]
+                duration_ms = max(0, end_ms - start_ms)
+
+                if mode == "beep":
+                    replacement = self._generate_beep(duration_ms)
+                else:
+                    replacement = AudioSegment.silent(duration=duration_ms)
+
+                audio = audio[:start_ms] + replacement + audio[end_ms:]
+                progress = 60 + int((idx / total_ranges) * 20)
+                self._set_processing_progress(progress, status_text, "#ef6c00")
 
             audio.export(clean_audio_path, format="wav")
 
-            self._set_filter_status("Filter: rebuilding video...", "#ef6c00")
+            self._set_processing_progress(85, "Rebuilding video...", "#ef6c00")
             clean_audio_clip = AudioFileClip(clean_audio_path)
             if hasattr(video_clip, "with_audio"):
                 final_video = video_clip.with_audio(clean_audio_clip)
@@ -317,6 +368,7 @@ class VideoPlayer:
                 logger=None,
             )
             final_video.close()
+            self._set_processing_progress(100, "Completed", "#2e7d32")
 
             self.root.after(0, lambda: self._on_filter_done(clean_video_path, len(bad_word_times)))
         except Exception as exc:
@@ -334,6 +386,7 @@ class VideoPlayer:
         messagebox.showinfo("Success", f"Clean video created:\n{clean_video_path}")
 
     def _on_filter_error(self, err_text):
+        self._set_processing_progress(0, "Failed", "#c62828")
         self._set_filter_status("Filter: failed", "#c62828")
         messagebox.showerror("Filtering Error", err_text)
 
@@ -552,6 +605,17 @@ class VideoPlayer:
     def _set_filter_status(self, text, color="#666"):
         self.root.after(0, lambda: self.filter_status_label.config(text=text, fg=color))
 
+    def _set_processing_progress(self, value, status_text=None, status_color="#666"):
+        progress_value = max(0, min(100, int(value)))
+
+        def _update():
+            self.processing_progress.set(progress_value)
+            self.processing_pct_label.config(text=f"{progress_value}%")
+            if status_text is not None:
+                self.filter_status_label.config(text=status_text, fg=status_color)
+
+        self.root.after(0, _update)
+
     def _load_profanity_words(self):
         if not os.path.exists("profanity.txt"):
             open("profanity.txt", "a", encoding="utf-8").close()
@@ -610,6 +674,37 @@ class VideoPlayer:
         self._save_profanity_words()
         self._refresh_profanity_ui()
         self._set_filter_status("Filter: word removed", "#2e7d32")
+
+    @staticmethod
+    def _generate_beep(duration_ms, frequency=1000, sample_rate=44100):
+        """
+        Generate a sine wave beep sound.
+        
+        Args:
+            duration_ms: Duration in milliseconds
+            frequency: Beep frequency in Hz (default 1000 Hz)
+            sample_rate: Sample rate in Hz (default 44100 Hz)
+        
+        Returns:
+            AudioSegment with beep sound
+        """
+        import numpy as np
+        
+        duration_sec = duration_ms / 1000.0
+        num_samples = int(sample_rate * duration_sec)
+        
+        # Generate sine wave
+        t = np.linspace(0, duration_sec, num_samples, False)
+        amplitude = 0.3  # 30% amplitude to avoid clipping
+        wave = np.sin(2 * np.pi * frequency * t) * (32767 * amplitude)
+        wave = wave.astype(np.int16)
+        
+        return AudioSegment(
+            wave.tobytes(),
+            frame_rate=sample_rate,
+            sample_width=2,
+            channels=1
+        )
 
     @staticmethod
     def _safe_delete_file(path):
