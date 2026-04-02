@@ -46,6 +46,11 @@ class VideoPlayer:
         self.playback_start_time = 0.0
         self.playback_start_frame = 0
         self.volume = 1.0
+        self.brightness = 1.0
+        self.skip_seconds = 5
+        self._updating_progress = False
+        self._is_scrubbing = False
+        self._resume_after_scrub = False
         self.processing_progress = tk.DoubleVar(value=0.0)
 
         self._build_ui()
@@ -123,6 +128,21 @@ class VideoPlayer:
         self.volume_label = tk.Label(controls, text="Volume")
         self.volume_label.pack(side=tk.RIGHT, padx=(12, 4))
 
+        self.brightness_label = tk.Label(controls, text="Brightness")
+        self.brightness_label.pack(side=tk.RIGHT, padx=(12, 4))
+
+        self.brightness_scale = tk.Scale(
+            controls,
+            from_=50,
+            to=150,
+            orient=tk.HORIZONTAL,
+            command=self._on_brightness_change,
+            showvalue=True,
+            length=120,
+        )
+        self.brightness_scale.set(100)
+        self.brightness_scale.pack(side=tk.RIGHT, padx=4)
+
         self.volume_scale = tk.Scale(
             controls,
             from_=0,
@@ -145,6 +165,16 @@ class VideoPlayer:
         progress_wrap = tk.Frame(self.root)
         progress_wrap.pack(fill=tk.X, padx=10, pady=6)
 
+        tk.Button(
+            progress_wrap,
+            text="<< 5s",
+            command=self.skip_backward,
+            bg="#455a64",
+            fg="white",
+            padx=8,
+            pady=2,
+        ).pack(side=tk.LEFT, padx=(0, 6))
+
         self.progress_scale = tk.Scale(
             progress_wrap,
             from_=0,
@@ -154,6 +184,18 @@ class VideoPlayer:
             showvalue=False,
         )
         self.progress_scale.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.progress_scale.bind("<ButtonPress-1>", self._on_timeline_press)
+        self.progress_scale.bind("<ButtonRelease-1>", self._on_timeline_release)
+
+        tk.Button(
+            progress_wrap,
+            text="5s >>",
+            command=self.skip_forward,
+            bg="#455a64",
+            fg="white",
+            padx=8,
+            pady=2,
+        ).pack(side=tk.LEFT, padx=6)
 
         self.time_label = tk.Label(progress_wrap, text="00:00 / 00:00", width=16)
         self.time_label.pack(side=tk.RIGHT, padx=8)
@@ -234,6 +276,10 @@ class VideoPlayer:
         self.processing_pct_label.pack(side=tk.RIGHT, padx=(8, 0))
 
         self._load_profanity_words()
+
+        # Keyboard shortcuts for quick navigation.
+        self.root.bind("<Left>", self._on_skip_backward_key)
+        self.root.bind("<Right>", self._on_skip_forward_key)
 
     def open_video(self):
         file_path = filedialog.askopenfilename(
@@ -476,7 +522,11 @@ class VideoPlayer:
 
         self.current_frame = frame_index
         self._render_frame(frame)
-        self.progress_scale.set(self.current_frame)
+        self._updating_progress = True
+        try:
+            self.progress_scale.set(self.current_frame)
+        finally:
+            self._updating_progress = False
         self._update_time_label()
 
     def _render_frame(self, frame):
@@ -497,6 +547,7 @@ class VideoPlayer:
 
         frame = cv2.resize(frame, (new_w, new_h), interpolation=cv2.INTER_AREA)
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame = cv2.convertScaleAbs(frame, alpha=self.brightness, beta=0)
 
         image = Image.fromarray(frame)
         photo = ImageTk.PhotoImage(image=image)
@@ -544,6 +595,10 @@ class VideoPlayer:
         if not self.is_playing or not self.cap:
             return
 
+        if self._is_scrubbing:
+            self.root.after(10, self._playback_tick)
+            return
+
         elapsed = time.perf_counter() - self.playback_start_time
         target_frame = self.playback_start_frame + int(elapsed * self.fps)
 
@@ -555,6 +610,21 @@ class VideoPlayer:
             self._seek_and_show(target_frame)
 
         self.root.after(10, self._playback_tick)
+
+    def _on_timeline_press(self, _event):
+        if not self.cap:
+            return
+
+        self._is_scrubbing = True
+        self._resume_after_scrub = self.is_playing
+
+        if self._resume_after_scrub:
+            self.is_playing = False
+            if self.mixer_ready and pygame.mixer.music.get_busy():
+                try:
+                    pygame.mixer.music.pause()
+                except Exception:
+                    pass
 
     def pause_video(self):
         if not self.is_playing:
@@ -574,13 +644,83 @@ class VideoPlayer:
         if self.cap and reset_frame:
             self._seek_and_show(0)
 
-    def _on_seek(self, value):
-        if self.is_playing:
-            return
+    def skip_backward(self):
+        self._skip_seconds(-self.skip_seconds)
+
+    def skip_forward(self):
+        self._skip_seconds(self.skip_seconds)
+
+    def _skip_seconds(self, delta_seconds):
         if not self.cap:
             return
 
-        self._seek_and_show(int(float(value)))
+        was_playing = self.is_playing
+        delta_frames = int(delta_seconds * self.fps)
+        target_frame = self.current_frame + delta_frames
+        self._seek_and_show(target_frame)
+
+        if was_playing:
+            # Keep timeline and audio aligned after a jump.
+            self.playback_start_time = time.perf_counter()
+            self.playback_start_frame = self.current_frame
+            self._restart_audio_at_current_position()
+
+    def _restart_audio_at_current_position(self):
+        if not self.mixer_ready:
+            self._set_audio_status("Audio: mixer unavailable", "#c62828")
+            return
+        if not self.audio_path or not os.path.exists(self.audio_path):
+            self._set_audio_status("Audio: not available", "#ef6c00")
+            return
+
+        try:
+            pygame.mixer.music.load(self.audio_path)
+            start_sec = self.current_frame / self.fps if self.fps > 0 else 0
+            if start_sec > 0:
+                try:
+                    pygame.mixer.music.play(loops=0, start=start_sec)
+                except Exception:
+                    pygame.mixer.music.play(loops=0)
+            else:
+                pygame.mixer.music.play(loops=0)
+            pygame.mixer.music.set_volume(self.volume)
+            self._set_audio_status("Audio: playing", "#2e7d32")
+        except Exception as exc:
+            print(f"Audio seek failed: {exc}")
+            self._set_audio_status("Audio: playback failed", "#c62828")
+
+    def _on_skip_backward_key(self, _event):
+        self.skip_backward()
+
+    def _on_skip_forward_key(self, _event):
+        self.skip_forward()
+
+    def _on_seek(self, value):
+        if not self.cap:
+            return
+        if self._updating_progress:
+            return
+
+        # While paused, dragging the slider should preview the exact frame.
+        if not self.is_playing:
+            self._seek_and_show(int(float(value)))
+
+    def _on_timeline_release(self, _event):
+        if not self.cap:
+            return
+
+        was_playing = self._resume_after_scrub or self.is_playing
+        self._seek_and_show(int(self.progress_scale.get()))
+
+        self._is_scrubbing = False
+        self._resume_after_scrub = False
+
+        if was_playing:
+            self.is_playing = True
+            self.playback_start_time = time.perf_counter()
+            self.playback_start_frame = self.current_frame
+            self._restart_audio_at_current_position()
+            self._playback_tick()
 
     def _on_volume_change(self, value):
         self.volume = max(0.0, min(1.0, float(value) / 100.0))
@@ -589,6 +729,11 @@ class VideoPlayer:
                 pygame.mixer.music.set_volume(self.volume)
             except Exception:
                 pass
+
+    def _on_brightness_change(self, value):
+        self.brightness = max(0.5, min(1.5, float(value) / 100.0))
+        if self.cap and not self.is_playing:
+            self._seek_and_show(self.current_frame)
 
     def _on_resize(self, _event):
         if self.cap:
