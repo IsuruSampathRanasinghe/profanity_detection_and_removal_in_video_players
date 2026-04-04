@@ -133,17 +133,41 @@ def custom_filter(segments: list[dict[str, Any]], word_list: set[str]) -> tuple[
 class ProfanityFilter:
     """Filter facade used by the pipeline."""
 
-    def __init__(self, profanity_file: Path, ml_model: MLProfanityModel | None = None):
+    def __init__(
+        self,
+        profanity_file: Path,
+        profanity_files_by_language: dict[str, Path] | None = None,
+        ml_model: MLProfanityModel | None = None,
+    ):
         self.profanity_file = profanity_file
+        self.profanity_files_by_language = profanity_files_by_language or {}
         self.ml_model = ml_model or MLProfanityModel()
+
+    def _load_words_for_language(self, language: str | None) -> set[str]:
+        language_key = (language or "").strip().lower()
+
+        # Auto-detect mode: merge all known lists for broader coverage.
+        if not language_key:
+            merged = set(read_profanity_words(self.profanity_file))
+            for file_path in self.profanity_files_by_language.values():
+                merged.update(read_profanity_words(file_path))
+            return merged
+
+        target_file = self.profanity_files_by_language.get(language_key)
+        if target_file:
+            return read_profanity_words(target_file)
+
+        # Fallback if unknown language code is provided.
+        return read_profanity_words(self.profanity_file)
 
     def detect(
         self,
         transcription_result: dict[str, Any],
         mode: str = "custom",
         use_ml_model: bool = False,
+        language: str | None = None,
     ) -> tuple[list[DetectionResult], int]:
-        words = read_profanity_words(self.profanity_file)
+        words = self._load_words_for_language(language)
         segments = transcription_result.get("segments", [])
 
         return filter_profanity(

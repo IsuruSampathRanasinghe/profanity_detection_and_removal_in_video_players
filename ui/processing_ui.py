@@ -23,10 +23,13 @@ class ProcessingUIMixin:
 
     def _filter_profanity_worker(self):
         try:
+            language = self.language_code.get().strip().lower() if hasattr(self, "language_code") else "auto"
+            whisper_language = None if language == "auto" else language
             output_path, count = self.pipeline.process_video(
                 video_path=self.original_video_path,
                 replacement_mode=self.filter_mode.get(),
                 intelligence_mode=self.intelligence_mode.get(),
+                language=whisper_language,
                 on_progress=self._pipeline_progress_callback,
             )
             self.root.after(0, lambda: self._on_filter_done(output_path, count, self.intelligence_mode.get()))

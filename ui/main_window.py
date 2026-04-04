@@ -62,6 +62,7 @@ class VideoPlayer(
         self.filtering_in_progress = False
         self.filter_mode = tk.StringVar(value=settings.filter_mode)
         self.intelligence_mode = tk.StringVar(value=settings.filtering_mode)
+        self.language_code = tk.StringVar(value="auto")
         self.intelligence_mode_description_text = tk.StringVar(
             value="Strict filtering (removes all offensive words, including masked words)"
         )
@@ -97,6 +98,7 @@ class VideoPlayer(
         self._build_ui()
         self._apply_theme()
         self._load_profanity_words()
+        self.language_code.trace_add("write", self._on_language_changed)
         self.intelligence_mode.trace_add("write", self._update_intelligence_mode_description)
         self._update_intelligence_mode_description()
         self.root.bind("<Left>", self._on_skip_backward_key)

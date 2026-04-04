@@ -13,11 +13,12 @@ def run_cli(args: argparse.Namespace) -> None:
     def progress(percent: int, message: str):
         print(f"[{percent:>3}%] {message}")
 
+    selected_language = None if args.language == "auto" else args.language
     output_path, count = pipeline.process_video(
         video_path=args.input,
         replacement_mode=args.replacement_mode,
         intelligence_mode=args.detection_mode,
-        language=args.language,
+        language=selected_language,
         on_progress=progress,
     )
 
@@ -45,8 +46,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--language",
         type=str,
-        default=None,
-        help="Whisper language code (e.g. en, si, ta). Leave empty for auto-detect.",
+        choices=["auto", "en", "si", "ta"],
+        default="auto",
+        help="Whisper transcription language: auto, en, si (Sinhala), or ta (Tamil).",
     )
     return parser
 

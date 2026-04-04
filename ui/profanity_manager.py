@@ -9,8 +9,21 @@ from utils.file_manager import read_profanity_words, write_profanity_words
 class ProfanityManagerMixin:
     """Owns profanity list data and listbox synchronization."""
 
+    def _active_profanity_file(self):
+        language = self.language_code.get().strip().lower() if hasattr(self, "language_code") else "auto"
+        if language == "en":
+            return settings.profanity_en_file
+        if language == "si":
+            return settings.profanity_si_file
+        if language == "ta":
+            return settings.profanity_ta_file
+        return settings.profanity_file
+
+    def _on_language_changed(self, *_args):
+        self._load_profanity_words()
+
     def _load_profanity_words(self):
-        self.profanity_words = read_profanity_words(settings.profanity_file)
+        self.profanity_words = read_profanity_words(self._active_profanity_file())
         self._refresh_profanity_ui()
 
     def _refresh_profanity_ui(self):
@@ -30,7 +43,7 @@ class ProfanityManagerMixin:
         self._update_current_word_label()
 
     def _save_profanity_words(self):
-        write_profanity_words(settings.profanity_file, self.profanity_words)
+        write_profanity_words(self._active_profanity_file(), self.profanity_words)
 
     def _on_profanity_select(self, _event=None):
         selection = self.profanity_listbox.curselection()

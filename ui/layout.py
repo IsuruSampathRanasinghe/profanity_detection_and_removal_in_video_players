@@ -72,6 +72,19 @@ class LayoutMixin:
         self._create_button(self.top_frame, "Filter Profanity", self.filter_profanity, "Accent.TButton").grid(row=0, column=1, sticky="w", padx=(0, 8))
         ttk.Checkbutton(self.top_frame, text="Dark mode", variable=self.dark_mode, command=self._on_theme_toggle, style="TCheckbutton").grid(row=0, column=2, sticky="w", padx=(0, 8))
         self._create_button(self.top_frame, "Fullscreen", self._toggle_fullscreen, "Compact.TButton").grid(row=0, column=3, sticky="w", padx=(0, 8))
+
+        language_row = ttk.Frame(self.top_frame, style="Panel.TFrame")
+        language_row.grid(row=0, column=4, sticky="e", padx=(0, 8))
+        ttk.Label(language_row, text="Language", style="SectionLabel.TLabel").pack(side=self.tk.LEFT, padx=(0, 6))
+        self.language_combo = ttk.Combobox(
+            language_row,
+            textvariable=self.language_code,
+            values=("auto", "en", "si", "ta"),
+            width=7,
+            state="readonly",
+        )
+        self.language_combo.pack(side=self.tk.LEFT)
+
         self._create_button(self.top_frame, textvariable=self.bottom_toggle_text, command=self._toggle_bottom_panel, style_name="Compact.TButton").grid(row=0, column=5, sticky="e")
         self.bottom_toggle_text.set("Hide Side Panel")
 

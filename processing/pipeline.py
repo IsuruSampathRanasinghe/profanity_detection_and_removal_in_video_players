@@ -30,7 +30,14 @@ class ProfanityProcessingPipeline:
     def __init__(self, cfg: Settings = settings):
         self.cfg = cfg
         self.transcriber = WhisperTranscriber(model_name=cfg.whisper_model_name)
-        self.filter = ProfanityFilter(profanity_file=cfg.profanity_file)
+        self.filter = ProfanityFilter(
+            profanity_file=cfg.profanity_file,
+            profanity_files_by_language={
+                "en": cfg.profanity_en_file,
+                "si": cfg.profanity_si_file,
+                "ta": cfg.profanity_ta_file,
+            },
+        )
 
     def process_video(
         self,
@@ -59,6 +66,7 @@ class ProfanityProcessingPipeline:
             transcription_result,
             mode=detector_mode,
             use_ml_model=self.cfg.use_ml_model,
+            language=language,
         )
 
         status = "Applying mute filter..." if audio_mode == "mute" else "Applying beep filter..."
