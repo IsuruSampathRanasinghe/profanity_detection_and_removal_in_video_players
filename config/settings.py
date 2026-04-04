@@ -4,6 +4,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
+# Intelligence mode defaults.
+FILTER_MODE = "kids"  # kids | adult | custom
+USE_ML_MODEL = False
+
+
 @dataclass(frozen=True)
 class Settings:
     """Application-level settings used by UI and processing modules."""
@@ -16,7 +21,9 @@ class Settings:
     profanity_file: Path = base_dir / "profanity.txt"
 
     whisper_model_name: str = "base"
-    filter_mode: str = "mute"  # mute | beep
+    filter_mode: str = "mute"  # mute | beep (audio replacement)
+    filtering_mode: str = FILTER_MODE  # kids | adult | custom
+    use_ml_model: bool = USE_ML_MODEL
     detection_mode: str = "rule-based"  # rule-based | ai
 
 

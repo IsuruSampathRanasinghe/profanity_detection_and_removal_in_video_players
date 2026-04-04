@@ -13,18 +13,17 @@ def run_cli(args: argparse.Namespace) -> None:
     def progress(percent: int, message: str):
         print(f"[{percent:>3}%] {message}")
 
-    result = pipeline.process_video(
+    output_path, count = pipeline.process_video(
         video_path=args.input,
         replacement_mode=args.replacement_mode,
-        detection_mode=args.detection_mode,
+        intelligence_mode=args.detection_mode,
         language=args.language,
         on_progress=progress,
     )
 
     print("\nProcessing complete")
-    print(f"Output video : {result.output_video_path}")
-    print(f"Clean audio  : {result.clean_audio_path}")
-    print(f"Detections   : {len(result.detections)}")
+    print(f"Output video : {output_path}")
+    print(f"Detections   : {count}")
 
 
 def build_parser() -> argparse.ArgumentParser:

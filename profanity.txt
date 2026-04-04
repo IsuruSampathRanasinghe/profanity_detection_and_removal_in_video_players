@@ -21,3 +21,39 @@ pathola
 gedara
 lochi
 
+# Added real profanity words
+asshole
+bastard
+bitch
+bullshit
+dick
+fuck
+fucker
+fucking
+motherfucker
+piss
+
+# Variations, plurals, and common misspellings
+assholes
+assholez
+bastards
+bitches
+biatch
+bullsh*t
+dicks
+dickhead
+f*ck
+f**k
+f***
+fck
+fuckers
+fuk
+fuking
+motherfuckers
+motherfucking
+pissed
+sh!t
+sh1t
+shithead
+shits
+

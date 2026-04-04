@@ -1,7 +1,6 @@
 """End-to-end profanity removal pipeline orchestrator."""
 
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Callable
 
 from config.settings import Settings, settings
@@ -37,14 +36,15 @@ class ProfanityProcessingPipeline:
         self,
         video_path: str,
         replacement_mode: str | None = None,
+        intelligence_mode: str | None = None,
         detection_mode: str | None = None,
         language: str | None = None,
         on_progress: ProgressCallback | None = None,
-    ) -> PipelineResult:
+    ) -> tuple[str, int]:
         ensure_directories([self.cfg.audio_dir, self.cfg.outputs_dir])
 
-        mode = replacement_mode or self.cfg.filter_mode
-        detector_mode = detection_mode or self.cfg.detection_mode
+        audio_mode = replacement_mode or self.cfg.filter_mode
+        detector_mode = intelligence_mode or detection_mode or self.cfg.filtering_mode
 
         paths = build_processing_paths(video_path, self.cfg)
 
@@ -55,15 +55,19 @@ class ProfanityProcessingPipeline:
         transcription_result = self.transcriber.transcribe(str(paths["extracted_audio"]), language=language)
 
         self._progress(on_progress, 55, f"Detecting profanity ({detector_mode})...")
-        detections = self.filter.detect(transcription_result, mode=detector_mode)
+        detections, count = self.filter.detect(
+            transcription_result,
+            mode=detector_mode,
+            use_ml_model=self.cfg.use_ml_model,
+        )
 
-        status = "Applying mute filter..." if mode == "mute" else "Applying beep filter..."
+        status = "Applying mute filter..." if audio_mode == "mute" else "Applying beep filter..."
         self._progress(on_progress, 70, status)
         clean_audio(
             source_audio_path=str(paths["extracted_audio"]),
             detections=detections,
             output_audio_path=str(paths["clean_audio"]),
-            replacement_mode=mode,
+            replacement_mode=audio_mode,
         )
 
         self._progress(on_progress, 85, "Rebuilding clean video...")
@@ -74,12 +78,7 @@ class ProfanityProcessingPipeline:
         )
 
         self._progress(on_progress, 100, "Completed")
-        return PipelineResult(
-            output_video_path=str(paths["output_video"]),
-            clean_audio_path=str(paths["clean_audio"]),
-            extracted_audio_path=str(paths["extracted_audio"]),
-            detections=detections,
-        )
+        return str(paths["output_video"]), count
 
     @staticmethod
     def _progress(cb: ProgressCallback | None, percent: int, message: str) -> None:
