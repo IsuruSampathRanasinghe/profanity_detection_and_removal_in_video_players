@@ -1,45 +1,97 @@
-# Profanity Detection & Removal in Video Players
+# Profanity Detection and Removal in Video Players
 
-A web-based application that automatically detects and removes profanity from videos.
+This project is a local Python application for detecting profanity in video audio and producing a cleaned version of the video. It uses Whisper for transcription, a word-list-based profanity filter by default, pydub for audio replacement, and MoviePy for rebuilding the final video.
 
-## Features
+## What It Does
 
-- 🎬 **Video Upload**: Upload video files (MP4, AVI, MOV, MKV, FLV)
-- 🔍 **Profanity Detection**: Uses OpenAI's Whisper for speech-to-text transcription
-- 🔇 **Auto-Muting**: Automatically mutes profane words in the audio
-- 🎥 **Video Playback**: Built-in player to preview videos
-- 📊 **Real-time Progress**: Monitor processing status with live progress updates
-- 💾 **Video Management**: View uploaded and processed videos
+- Loads a video file from disk
+- Extracts the audio track
+- Transcribes speech with Whisper
+- Detects profanity with a configurable rule-based or future ML strategy
+- Replaces profane segments with silence or a beep tone
+- Rebuilds a cleaned output video
+- Lets you preview original and cleaned videos in a Tkinter UI
+
+## Current Architecture
+
+The project is split into small modules with clear responsibilities:
+
+- [main.py](main.py) is the entry point for CLI processing or launching the GUI
+- [ui/video_player.py](ui/video_player.py) contains only the Tkinter interface and playback logic
+- [processing/pipeline.py](processing/pipeline.py) coordinates the full workflow
+- [processing/audio_extractor.py](processing/audio_extractor.py) handles audio extraction
+- [processing/transcription.py](processing/transcription.py) wraps Whisper transcription
+- [processing/profanity_filter.py](processing/profanity_filter.py) performs rule-based or AI-based profanity detection
+- [processing/audio_cleaner.py](processing/audio_cleaner.py) mutates audio by mute or beep replacement
+- [processing/video_builder.py](processing/video_builder.py) rebuilds the final video
+- [utils/file_manager.py](utils/file_manager.py) handles file, path, and profanity-list helpers
+- [config/settings.py](config/settings.py) stores shared configuration
+- [models/ml_profanity_model.py](models/ml_profanity_model.py) is a placeholder for future ML-based detection
+
+## Folder Structure
+
+```text
+.
+├── config/
+│   ├── __init__.py
+│   └── settings.py
+├── models/
+│   ├── __init__.py
+│   └── ml_profanity_model.py
+├── processing/
+│   ├── __init__.py
+│   ├── audio_cleaner.py
+│   ├── audio_extractor.py
+│   ├── pipeline.py
+│   ├── profanity_filter.py
+│   ├── transcription.py
+│   └── video_builder.py
+├── ui/
+│   ├── __init__.py
+│   └── video_player.py
+├── utils/
+│   ├── __init__.py
+│   └── file_manager.py
+├── audio/
+├── outputs/
+├── uploads/
+├── videos/
+├── main.py
+├── video_player.py
+├── profanity.txt
+├── requirements.txt
+└── README.md
+```
 
 ## Requirements
 
 - Python 3.8 or higher
-- FFmpeg (required by moviepy)
-- 500MB+ free disk space for processing videos
+- FFmpeg installed and available on PATH
+- Enough disk space for temporary audio and output video files
 
 ## Installation
 
-### 1. Install FFmpeg
+Install FFmpeg first if it is not already available.
 
-**Windows (using Chocolatey):**
+Windows with Chocolatey:
+
 ```bash
 choco install ffmpeg
 ```
 
-**Windows (manual):**
-Download from https://ffmpeg.org/download.html and add to PATH
+macOS:
 
-**macOS:**
 ```bash
 brew install ffmpeg
 ```
 
-**Linux (Ubuntu/Debian):**
+Ubuntu or Debian:
+
 ```bash
 sudo apt-get install ffmpeg
 ```
 
-### 2. Install Python Dependencies
+Install Python dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -47,125 +99,86 @@ pip install -r requirements.txt
 
 ## Usage
 
-### Option 1: Run with Web UI (Recommended)
+### Launch the GUI
 
-Start the Flask application:
-
-```bash
-python app.py
-```
-
-Then open your browser to: **http://localhost:5000**
-
-Features:
-- Select or upload a video
-- Click "Start Processing" to remove profanity
-- Watch real-time progress
-- Download the cleaned video
-
-### Option 2: Custom Built-in Video Player (NEW!)
-
-Run the advanced custom video player:
+Run the Tkinter player and filtering UI:
 
 ```bash
-python custom_video_player.py
+python main.py --gui
 ```
 
-**Features:**
-- ✨ Native video playback within the application
-- ▶️ Full playback controls (play, pause, stop)
-- ⏱️ Seek/timeline with frame-precise control
-- 🎬 Real-time video display with frame updating
-- ⚡ Adjustable playback speed (0.25x - 2.0x)
-- 📊 Video information display (resolution, FPS, duration)
-- 🎨 Modern dark-themed UI
-- 📁 Support for MP4, AVI, MOV, MKV, FLV, WMV, WebM formats
-
-**Technology:**
-- Uses OpenCV for fast video processing (primary)
-- Falls back to MoviePy if OpenCV unavailable
-- Pillow for image display in GUI
-
-### Option 3: GUI Video Player (Legacy)
-
-Run the legacy video player:
+You can also launch the same UI through the compatibility entry point:
 
 ```bash
-python video_player_gui.py
+python video_player.py
 ```
 
-Features:
-- Open video files with file browser
-- Support for MP4, AVI, MOV, MKV, FLV, WMV formats
-- Two modes: System player or integrated (with moviepy/Pillow)
+### Process a Video from the CLI
 
-### Option 4: Run Core Script Directly
-
-For command-line processing:
+Run the pipeline directly on one file:
 
 ```bash
-python main.py
+python main.py --input videos/movie.mp4
 ```
 
-This requires editing `main.py` to specify the video path.
+Optional flags:
 
-## Project Structure
+- `--replacement-mode mute|beep` controls how profane audio is replaced
+- `--detection-mode rule-based|ai` selects the detection strategy
+- `--language en|si|ta|...` passes a Whisper language code, or omit it for auto-detect
 
-```
-.
-├── app.py                      # Flask web application
-├── main.py                     # Core processing script
-├── video_player_gui.py         # GUI video player
-├── profanity.txt              # List of bad words
-├── requirements.txt           # Python dependencies
-├── frontend/
-│   ├── templates/
-│   │   └── index.html         # Web interface
-│   └── static/
-│       ├── style.css          # Styling
-│       └── script.js          # Client-side logic
-├── videos/                    # Input video storage
-├── uploads/                   # User uploaded videos
-├── outputs/                   # Processed videos
-└── audio/                     # Temporary audio files
+Example:
+
+```bash
+python main.py --input videos/movie.mp4 --replacement-mode beep --language en
 ```
 
-## How It Works
+## How the Pipeline Works
 
-1. **Audio Extraction**: Extracts audio from the selected video
-2. **Speech Recognition**: Converts speech to text using Whisper
-3. **Bad Word Detection**: Scans transcribed text for profanity
-4. **Audio Muting**: Replaces profane segments with silence
-5. **Video Reconstruction**: Creates new video with cleaned audio
+1. `audio_extractor.py` extracts audio from the input video
+2. `transcription.py` uses Whisper to generate transcript segments
+3. `profanity_filter.py` scans the transcript for profanity matches
+4. `audio_cleaner.py` replaces those ranges with silence or beep audio
+5. `video_builder.py` attaches the cleaned audio to the source video
+6. `pipeline.py` coordinates the full workflow and reports progress
 
 ## Configuration
 
-Edit `profanity.txt` to customize the list of words to detect. One word per line.
+Shared settings live in [config/settings.py](config/settings.py).
 
-## Troubleshooting
+Key options include:
 
-### FFmpeg Not Found
-- Ensure FFmpeg is installed and added to your system PATH
-- Restart your terminal after installation
+- Whisper model name
+- Default filter mode: mute or beep
+- Default detection mode: rule-based or ai
+- Paths for audio, outputs, uploads, videos, and profanity words
 
-### Processing Slow
-- Initial Whisper model download takes time
-- Adjust `preset` in `app.py` (fast, medium, slow) for quality vs speed tradeoff
-- Use smaller videos for testing
+The profanity list is stored in [profanity.txt](profanity.txt). Blank lines and lines starting with `#` are ignored.
 
-### Audio Sync Issues
-- Ensure original video has intact audio stream
-- Try with different video formats
+## Extensibility
 
-## Technical Details
+The project is structured so you can extend it without touching the UI:
 
-- **Speech Recognition**: OpenAI Whisper (base model)
-- **Video Processing**: MoviePy with libx264 codec
-- **Audio Processing**: pydub
-- **Web Framework**: Flask
-- **Frontend**: HTML5, CSS3, Vanilla JavaScript
-- **GUI Framework**: Tkinter (uses system video player)
-- **File Upload**: Max 500MB
+- Replace or extend the rule-based detector in [processing/profanity_filter.py](processing/profanity_filter.py)
+- Implement ML logic in [models/ml_profanity_model.py](models/ml_profanity_model.py)
+- Add new audio replacement strategies in [processing/audio_cleaner.py](processing/audio_cleaner.py)
+- Add new pipeline steps in [processing/pipeline.py](processing/pipeline.py)
+
+## Technical Stack
+
+- Whisper for speech-to-text transcription
+- MoviePy for video/audio reading and rebuilding
+- pydub for segment-level audio editing
+- OpenCV for frame decoding and playback in the UI
+- pygame for audio preview playback
+- Pillow for rendering frames in Tkinter
+- Tkinter for the desktop interface
+
+## Notes
+
+- The project is now organized as a local desktop application plus processing pipeline, not a Flask web app
+- Temporary audio files are written under [audio](audio)
+- Clean videos are written under [outputs](outputs)
 
 ## License
 
