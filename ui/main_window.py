@@ -59,6 +59,8 @@ class VideoPlayer(
         self.clean_video_path = None
         self.audio_path = None
         self.generated_audio_paths: set[Path] = set()
+        self.generated_processing_audio_paths: set[Path] = set()
+        self.generated_video_paths: set[Path] = set()
         self.filtering_in_progress = False
         self.filter_mode = tk.StringVar(value=settings.filter_mode)
         self.intelligence_mode = tk.StringVar(value=settings.filtering_mode)
@@ -136,6 +138,14 @@ class VideoPlayer(
         for path in list(self.generated_audio_paths):
             safe_delete(path)
             self.generated_audio_paths.discard(path)
+
+        for path in list(self.generated_processing_audio_paths):
+            safe_delete(path)
+            self.generated_processing_audio_paths.discard(path)
+
+        for path in list(self.generated_video_paths):
+            safe_delete(path)
+            self.generated_video_paths.discard(path)
 
 
 def launch_video_player():

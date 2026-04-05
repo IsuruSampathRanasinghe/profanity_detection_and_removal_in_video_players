@@ -3,7 +3,7 @@
 import argparse
 
 from processing.pipeline import ProfanityProcessingPipeline
-from ui.video_player import launch_video_player
+from ui.main_window import launch_video_player
 
 
 def run_cli(args: argparse.Namespace) -> None:

@@ -14,7 +14,7 @@ class FileHandlerMixin:
         file_path = filedialog.askopenfilename(
             title="Select a video file",
             filetypes=[("Video files", "*.mp4 *.avi *.mov *.mkv *.flv"), ("All files", "*.*")],
-            initialdir=str(settings.videos_dir),
+            initialdir=str(settings.inputs_dir),
         )
         if not file_path:
             return

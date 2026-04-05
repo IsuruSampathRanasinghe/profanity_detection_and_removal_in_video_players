@@ -36,9 +36,8 @@ build/
 outputs/
 
 # Generated / runtime data
-uploads/
+inputs/
 audio/
-videos/
 
 # Temporary files
 *.tmp

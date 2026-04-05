@@ -17,7 +17,7 @@ This project is a local Python application for detecting profanity in video audi
 The project is split into small modules with clear responsibilities:
 
 - [main.py](main.py) is the entry point for CLI processing or launching the GUI
-- [ui/video_player.py](ui/video_player.py) contains only the Tkinter interface and playback logic
+- [ui/main_window.py](ui/main_window.py) contains the Tkinter controller for the modular interface
 - [processing/pipeline.py](processing/pipeline.py) coordinates the full workflow
 - [processing/audio_extractor.py](processing/audio_extractor.py) handles audio extraction
 - [processing/transcription.py](processing/transcription.py) wraps Whisper transcription
@@ -35,6 +35,12 @@ The project is split into small modules with clear responsibilities:
 ├── config/
 │   ├── __init__.py
 │   └── settings.py
+├── data/
+│   └── profanity/
+│       ├── en.txt              # English profanity words
+│       ├── si.txt              # Sinhala profanity words
+│       ├── ta.txt              # Tamil profanity words
+│       └── fallback.txt         # Merged fallback list (auto-detect mode)
 ├── models/
 │   ├── __init__.py
 │   └── ml_profanity_model.py
@@ -48,17 +54,24 @@ The project is split into small modules with clear responsibilities:
 │   └── video_builder.py
 ├── ui/
 │   ├── __init__.py
-│   └── video_player.py
+│   ├── main_window.py
+│   ├── layout.py
+│   ├── playback.py
+│   ├── video_canvas.py
+│   ├── audio_manager.py
+│   ├── file_handler.py
+│   ├── profanity_manager.py
+│   ├── processing_ui.py
+│   ├── theme.py
+│   └── tooltip.py
 ├── utils/
 │   ├── __init__.py
 │   └── file_manager.py
-├── audio/
-├── outputs/
-├── uploads/
-├── videos/
+├── audio/                       # Extracted audio files (runtime)
+├── outputs/                     # Processed video output
+├── inputs/                      # Input video storage
 ├── main.py
-├── video_player.py
-├── profanity.txt
+├── video_player.py              # Backward-compatible shim
 ├── requirements.txt
 └── README.md
 ```
@@ -118,7 +131,7 @@ python video_player.py
 Run the pipeline directly on one file:
 
 ```bash
-python main.py --input videos/movie.mp4
+python main.py --input inputs/movie.mp4
 ```
 
 Optional flags:
@@ -130,7 +143,7 @@ Optional flags:
 Example:
 
 ```bash
-python main.py --input videos/movie.mp4 --replacement-mode beep --language en
+python main.py --input inputs/movie.mp4 --replacement-mode beep --language en
 ```
 
 ## How the Pipeline Works
@@ -151,9 +164,15 @@ Key options include:
 - Whisper model name
 - Default filter mode: mute or beep
 - Default detection mode: rule-based or ai
-- Paths for audio, outputs, uploads, videos, and profanity words
+- Paths for audio, outputs, inputs, and language-specific profanity word lists
 
-The profanity list is stored in [profanity.txt](profanity.txt). Blank lines and lines starting with `#` are ignored.
+The profanity lists are stored in [data/profanity/](data/profanity/):
+- `en.txt` for English
+- `si.txt` for Sinhala
+- `ta.txt` for Tamil
+- `fallback.txt` for auto-detect mode (merged list)
+
+Blank lines and lines starting with `#` are ignored.
 
 ## Extensibility
 

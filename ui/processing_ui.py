@@ -1,7 +1,11 @@
 """Processing pipeline UI mixin for filtering, progress, and result messages."""
 
+from pathlib import Path
 import threading
 from tkinter import messagebox
+
+from config.settings import settings
+from utils.file_manager import build_processing_paths
 
 
 class ProcessingUIMixin:
@@ -23,6 +27,12 @@ class ProcessingUIMixin:
 
     def _filter_profanity_worker(self):
         try:
+            paths = build_processing_paths(self.original_video_path, settings)
+            self.generated_processing_audio_paths.update(
+                {Path(paths["extracted_audio"]), Path(paths["clean_audio"])}
+            )
+            self.generated_video_paths.add(Path(paths["output_video"]))
+
             language = self.language_code.get().strip().lower() if hasattr(self, "language_code") else "auto"
             whisper_language = None if language == "auto" else language
             output_path, count = self.pipeline.process_video(
