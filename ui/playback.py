@@ -10,6 +10,72 @@ import pygame
 class PlaybackMixin:
     """Playback state machine and user playback actions."""
 
+    def _refresh_timeline_markers(self, detections):
+        self.timeline_detections = sorted(detections, key=lambda item: float(item.start)) if detections else []
+        self._redraw_timeline_markers()
+
+    def _clear_timeline_markers(self):
+        self.timeline_detections = []
+        self._redraw_timeline_markers()
+
+    def _redraw_timeline_markers(self, _event=None):
+        if not hasattr(self, "timeline_marker_canvas"):
+            return
+
+        canvas = self.timeline_marker_canvas
+        canvas.delete("all")
+
+        width = max(1, canvas.winfo_width())
+        height = max(1, canvas.winfo_height())
+
+        # Visual baseline that aligns markers with the seek bar track.
+        canvas.create_line(0, height // 2, width, height // 2, fill=self.palette["border"], width=1)
+
+        if self.total_frames <= 1 or self.fps <= 0 or not getattr(self, "timeline_detections", None):
+            return
+
+        total_duration = self.total_frames / self.fps
+        if total_duration <= 0:
+            return
+
+        for detection in self.timeline_detections:
+            ratio = max(0.0, min(1.0, float(detection.start) / total_duration))
+            x_pos = int(ratio * (width - 1))
+
+            marker_color = self.palette["accent"]
+            source = str(getattr(detection, "source", ""))
+            if "adult" in source:
+                marker_color = self.palette["warning"]
+            elif "ml" in source:
+                marker_color = self.palette["danger"]
+
+            canvas.create_line(x_pos, 1, x_pos, height - 1, fill=marker_color, width=2)
+
+    def _on_marker_click(self, event):
+        if not self.cap or not self.timeline_detections or self.total_frames <= 1 or self.fps <= 0:
+            return
+
+        canvas = self.timeline_marker_canvas
+        width = max(1, canvas.winfo_width())
+        click_ratio = max(0.0, min(1.0, event.x / width))
+        click_time = click_ratio * (self.total_frames / self.fps)
+
+        nearest = min(self.timeline_detections, key=lambda item: abs(float(item.start) - click_time))
+        nearest_ratio = max(0.0, min(1.0, float(nearest.start) / (self.total_frames / self.fps)))
+        nearest_x = int(nearest_ratio * (width - 1))
+        if abs(event.x - nearest_x) > 8:
+            return
+
+        target_frame = int(float(nearest.start) * self.fps)
+
+        was_playing = self.is_playing
+        self._seek_and_show(target_frame)
+
+        if was_playing:
+            self.playback_start_time = time.perf_counter()
+            self.playback_start_frame = self.current_frame
+            self._restart_audio_at_current_position()
+
     def play_video(self):
         if not self.cap or not self.cap.isOpened():
             messagebox.showwarning("Warning", "Open a video first")

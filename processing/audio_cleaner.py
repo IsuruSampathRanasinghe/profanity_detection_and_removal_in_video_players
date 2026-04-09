@@ -2,20 +2,27 @@
 
 import numpy as np
 from pydub import AudioSegment
-
 from processing.profanity_filter import DetectionResult
 
 
-def generate_beep(duration_ms: int, frequency: int = 1000, sample_rate: int = 44100) -> AudioSegment:
-    """Generate a sine-wave beep tone for censorship."""
+# =========================
+# BEEP GENERATOR
+# =========================
+def generate_beep(
+    duration_ms: int,
+    frequency: int = 1000,
+    sample_rate: int = 44100
+) -> AudioSegment:
+    """Generate a sine-wave beep tone."""
+    
     duration_sec = max(0, duration_ms) / 1000.0
     num_samples = int(sample_rate * duration_sec)
+
     if num_samples <= 0:
         return AudioSegment.silent(duration=0)
 
     t = np.linspace(0, duration_sec, num_samples, False)
-    amplitude = 0.3
-    wave = np.sin(2 * np.pi * frequency * t) * (32767 * amplitude)
+    wave = np.sin(2 * np.pi * frequency * t) * 32767 * 0.3
     wave = wave.astype(np.int16)
 
     return AudioSegment(
@@ -26,26 +33,84 @@ def generate_beep(duration_ms: int, frequency: int = 1000, sample_rate: int = 44
     )
 
 
+# =========================
+# MERGE OVERLAPPING RANGES
+# =========================
+def merge_ranges(ranges: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Merge overlapping time ranges."""
+    
+    if not ranges:
+        return []
+
+    ranges = sorted(ranges)
+    merged = [ranges[0]]
+
+    for current in ranges[1:]:
+        prev_start, prev_end = merged[-1]
+        curr_start, curr_end = current
+
+        if curr_start <= prev_end:
+            merged[-1] = (prev_start, max(prev_end, curr_end))
+        else:
+            merged.append(current)
+
+    return merged
+
+
+# =========================
+# CLEAN AUDIO (OPTIMIZED)
+# =========================
 def clean_audio(
     source_audio_path: str,
     detections: list[DetectionResult],
     output_audio_path: str,
     replacement_mode: str = "mute",
 ) -> int:
-    """Replace detected ranges with silence or beeps and export cleaned audio."""
+    """
+    Replace detected ranges with silence or beep.
+    Optimized for performance + correct timing.
+    """
+
     audio = AudioSegment.from_wav(source_audio_path)
 
-    for detection in detections:
-        start_ms = max(0, int(detection.start * 1000))
-        end_ms = max(start_ms, int(detection.end * 1000))
-        duration_ms = end_ms - start_ms
+    # Convert detections → ms ranges
+    ranges = [
+        (
+            max(0, int(d.start * 1000)),
+            max(0, int(d.end * 1000)),
+        )
+        for d in detections
+    ]
 
+    # Merge overlaps
+    ranges = merge_ranges(ranges)
+
+    # Build output efficiently
+    output_audio = AudioSegment.empty()
+    last_end = 0
+
+    for start, end in ranges:
+        start = max(0, start)
+        end = max(start, end)
+
+        # Keep original audio before bad word
+        output_audio += audio[last_end:start]
+
+        duration = end - start
+
+        # Insert replacement
         if replacement_mode == "beep":
-            replacement = generate_beep(duration_ms)
+            replacement = generate_beep(duration)
         else:
-            replacement = AudioSegment.silent(duration=duration_ms)
+            replacement = AudioSegment.silent(duration=duration)
 
-        audio = audio[:start_ms] + replacement + audio[end_ms:]
+        output_audio += replacement
+        last_end = end
 
-    audio.export(output_audio_path, format="wav")
-    return len(detections)
+    # Add remaining audio
+    output_audio += audio[last_end:]
+
+    # Export
+    output_audio.export(output_audio_path, format="wav")
+
+    return len(ranges)

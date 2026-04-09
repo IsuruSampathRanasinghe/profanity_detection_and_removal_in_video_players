@@ -21,6 +21,8 @@ class FileHandlerMixin:
 
         self.original_video_path = file_path
         self.clean_video_path = None
+        self._clear_timeline_markers()
+        self._clear_detection_review()
         self._set_filter_status("Filter: ready", self.palette["success"])
         self._load_video_source(file_path, source_name="Original")
 
@@ -48,6 +50,7 @@ class FileHandlerMixin:
 
         self._extract_audio(file_path)
         self._seek_and_show(0)
+        self._redraw_timeline_markers()
         return True
 
     def play_original_video(self):

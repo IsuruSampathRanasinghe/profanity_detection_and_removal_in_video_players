@@ -31,9 +31,10 @@ class LayoutMixin:
             self.bottom_toggle_text.set("Hide Side Panel")
         self.bottom_panel_visible = not self.bottom_panel_visible
 
-    def _build_slider_card(self, parent, column, title, command, initial_value, value_text_var):
+    def _build_slider_card(self, parent, row, column, title, command, initial_value, value_text_var):
         card = ttk.Frame(parent, style="Panel.TFrame", padding=(4, 0))
-        card.grid(row=0, column=column, sticky="ew", padx=(0 if column == 0 else 12, 0))
+        padx = (0, 6) if column == 0 else (6, 0)
+        card.grid(row=row, column=column, sticky="ew", padx=padx, pady=(0 if row == 0 else 8, 0))
         card.columnconfigure(0, weight=1)
 
         ttk.Label(card, text=title, style="SectionLabel.TLabel").grid(row=0, column=0, sticky="w")
@@ -127,6 +128,17 @@ class LayoutMixin:
         self.progress_scale.grid(row=0, column=3, sticky="ew", padx=(0, 10))
         self.progress_scale.bind("<ButtonPress-1>", self._on_timeline_press)
         self.progress_scale.bind("<ButtonRelease-1>", self._on_timeline_release)
+        self.timeline_marker_canvas = self.tk.Canvas(
+            self.playback_section,
+            height=10,
+            bg=self.palette["panel"],
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self.timeline_marker_canvas.grid(row=1, column=3, sticky="ew", padx=(0, 10), pady=(4, 0))
+        self.timeline_marker_canvas.bind("<Configure>", self._redraw_timeline_markers)
+        self.timeline_marker_canvas.bind("<Button-1>", self._on_marker_click)
         self._create_button(self.playback_section, "-5s", self.skip_backward, "Compact.TButton").grid(row=0, column=4, sticky="e", padx=(0, 6))
         self._create_button(self.playback_section, "+5s", self.skip_forward, "Compact.TButton").grid(row=0, column=5, sticky="e", padx=(0, 6))
         self._create_button(self.playback_section, "Stop", self.stop_video, "Danger.TButton").grid(row=0, column=6, sticky="e", padx=(0, 8))
@@ -134,57 +146,65 @@ class LayoutMixin:
         self.time_label.grid(row=0, column=7, sticky="e")
 
         self.bottom_frame = ttk.Frame(self.container, style="App.TFrame")
-        self.bottom_frame.grid(row=1, column=1, rowspan=2, sticky="nsew", padx=(10, 0))
+        # Start at row 0 to use previously empty top-right space.
+        self.bottom_frame.grid(row=0, column=1, rowspan=3, sticky="nsew", padx=(10, 0))
         self.bottom_frame.columnconfigure(0, weight=1)
-        self.bottom_frame.rowconfigure(1, weight=1)
+        # Keep all side-panel sections visible: settings, profanity list, review, and progress.
+        self.bottom_frame.rowconfigure(2, weight=2, minsize=170)
+        self.bottom_frame.rowconfigure(4, weight=1, minsize=120)
+        self.bottom_frame.rowconfigure(6, weight=0, minsize=90)
 
         self.settings_section = ttk.Labelframe(self.bottom_frame, text="Settings", style="Section.TLabelframe", padding=(12, 10))
-        self.settings_section.grid(row=0, column=0, sticky="ew", pady=(0, 8))
-        for column in range(3):
+        self.settings_section.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        for column in range(2):
             self.settings_section.columnconfigure(column, weight=1)
 
-        self._build_slider_card(self.settings_section, 0, "Volume", self._on_volume_change, 100, self.volume_value_text)
-        self._build_slider_card(self.settings_section, 1, "Brightness", self._on_brightness_change, 100, self.brightness_value_text)
+        replacement_card = ttk.Frame(self.settings_section, style="Panel.TFrame", padding=(4, 0))
+        replacement_card.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        replacement_card.columnconfigure(0, weight=1)
+        ttk.Label(replacement_card, text="Replacement", style="SectionLabel.TLabel").grid(row=0, column=0, sticky="w")
 
-        filter_card = ttk.Frame(self.settings_section, style="Panel.TFrame", padding=(4, 0))
-        filter_card.grid(row=0, column=2, sticky="ew", padx=(12, 0))
-        filter_card.columnconfigure(0, weight=1)
-        ttk.Label(filter_card, text="Replacement", style="SectionLabel.TLabel").grid(row=0, column=0, sticky="w")
-
-        mute_radio = ttk.Radiobutton(filter_card, text="Mute", variable=self.filter_mode, value="mute", style="Toggle.TRadiobutton")
+        mute_radio = ttk.Radiobutton(replacement_card, text="Mute", variable=self.filter_mode, value="mute", style="Toggle.TRadiobutton")
         mute_radio.grid(row=1, column=0, sticky="w", pady=(6, 2))
         Tooltip(mute_radio, "Silent replacement: Detected profanity segments are muted (silent).")
 
-        beep_radio = ttk.Radiobutton(filter_card, text="Beep", variable=self.filter_mode, value="beep", style="Toggle.TRadiobutton")
+        beep_radio = ttk.Radiobutton(replacement_card, text="Beep", variable=self.filter_mode, value="beep", style="Toggle.TRadiobutton")
         beep_radio.grid(row=2, column=0, sticky="w")
         Tooltip(beep_radio, "Beep replacement: Detected profanity segments are replaced with a beep sound.")
 
-        ttk.Separator(filter_card, orient=self.tk.HORIZONTAL).grid(row=3, column=0, sticky="ew", pady=(8, 8))
-        ttk.Label(filter_card, text="Intelligence Mode", style="SectionLabel.TLabel").grid(row=4, column=0, sticky="w")
+        intelligence_card = ttk.Frame(self.settings_section, style="Panel.TFrame", padding=(4, 0))
+        intelligence_card.grid(row=0, column=1, sticky="nsew", padx=(6, 0))
+        intelligence_card.columnconfigure(0, weight=1)
+        ttk.Label(intelligence_card, text="Intelligence Mode", style="SectionLabel.TLabel").grid(row=0, column=0, sticky="w")
 
-        kids_radio = ttk.Radiobutton(filter_card, text="Kids (strict)", variable=self.intelligence_mode, value="kids", style="Toggle.TRadiobutton")
-        kids_radio.grid(row=5, column=0, sticky="w", pady=(6, 2))
+        kids_radio = ttk.Radiobutton(intelligence_card, text="Kids (strict)", variable=self.intelligence_mode, value="kids", style="Toggle.TRadiobutton")
+        kids_radio.grid(row=1, column=0, sticky="w", pady=(6, 2))
         Tooltip(kids_radio, "Strict mode: Filters all profanity words, masked patterns (f***, sh!t), and optional AI detection. Best for children.")
 
-        adult_radio = ttk.Radiobutton(filter_card, text="Adult (moderate)", variable=self.intelligence_mode, value="adult", style="Toggle.TRadiobutton")
-        adult_radio.grid(row=6, column=0, sticky="w", pady=(0, 2))
+        adult_radio = ttk.Radiobutton(intelligence_card, text="Adult (moderate)", variable=self.intelligence_mode, value="adult", style="Toggle.TRadiobutton")
+        adult_radio.grid(row=2, column=0, sticky="w", pady=(0, 2))
         Tooltip(adult_radio, "Moderate mode: Filters only strong profanity words. Allows mild language. Suitable for general audiences.")
 
-        custom_radio = ttk.Radiobutton(filter_card, text="Custom (word list)", variable=self.intelligence_mode, value="custom", style="Toggle.TRadiobutton")
-        custom_radio.grid(row=7, column=0, sticky="w")
+        custom_radio = ttk.Radiobutton(intelligence_card, text="Custom (word list)", variable=self.intelligence_mode, value="custom", style="Toggle.TRadiobutton")
+        custom_radio.grid(row=3, column=0, sticky="w")
         Tooltip(custom_radio, "Custom mode: Filters only words in your custom profanity list below. Full user control.")
 
         self.intelligence_mode_description_label = ttk.Label(
-            filter_card,
+            intelligence_card,
             textvariable=self.intelligence_mode_description_text,
             style="Small.TLabel",
-            wraplength=220,
+            wraplength=180,
             justify=self.tk.LEFT,
         )
-        self.intelligence_mode_description_label.grid(row=8, column=0, sticky="w", pady=(8, 0))
+        self.intelligence_mode_description_label.grid(row=4, column=0, sticky="w", pady=(6, 0))
+
+        self._build_slider_card(self.settings_section, 1, 0, "Volume", self._on_volume_change, 100, self.volume_value_text)
+        self._build_slider_card(self.settings_section, 1, 1, "Brightness", self._on_brightness_change, 100, self.brightness_value_text)
+
+        ttk.Separator(self.bottom_frame, orient=self.tk.HORIZONTAL).grid(row=1, column=0, sticky="ew", pady=(0, 6))
 
         self.profanity_card = ttk.Labelframe(self.bottom_frame, text="Profanity Management", style="Section.TLabelframe", padding=(12, 10))
-        self.profanity_card.grid(row=1, column=0, sticky="nsew", pady=(0, 8))
+        self.profanity_card.grid(row=2, column=0, sticky="nsew", pady=(0, 4))
         self.profanity_card.columnconfigure(0, weight=1)
         self.profanity_card.rowconfigure(2, weight=1)
 
@@ -206,7 +226,7 @@ class LayoutMixin:
         list_frame.columnconfigure(0, weight=1)
         list_frame.rowconfigure(0, weight=1)
 
-        self.profanity_listbox = self.tk.Listbox(list_frame, exportselection=False, activestyle="none", selectmode=self.tk.SINGLE, height=5)
+        self.profanity_listbox = self.tk.Listbox(list_frame, exportselection=False, activestyle="none", selectmode=self.tk.SINGLE, height=8)
         self.profanity_listbox.grid(row=0, column=0, sticky="nsew")
         self.profanity_listbox.bind("<<ListboxSelect>>", self._on_profanity_select)
         self.profanity_listbox.bind("<Delete>", lambda _event: self._remove_selected_profanity_word())
@@ -217,8 +237,63 @@ class LayoutMixin:
         self.selected_word_label = ttk.Label(self.profanity_card, text="Select a word to remove it", style="Small.TLabel")
         self.selected_word_label.grid(row=3, column=0, sticky="w", pady=(6, 0))
 
+        ttk.Separator(self.bottom_frame, orient=self.tk.HORIZONTAL).grid(row=3, column=0, sticky="ew", pady=(0, 6))
+
+        self.review_card = ttk.Labelframe(self.bottom_frame, text="Detection Review", style="Section.TLabelframe", padding=(12, 10))
+        self.review_card.grid(row=4, column=0, sticky="nsew", pady=(0, 4))
+        self.review_card.columnconfigure(0, weight=1)
+        self.review_card.rowconfigure(1, weight=1)
+
+        self.review_summary_label = ttk.Label(self.review_card, textvariable=self.detection_review_summary_text, style="Muted.TLabel")
+        self.review_summary_label.grid(row=0, column=0, sticky="w")
+
+        review_list_frame = ttk.Frame(self.review_card, style="Panel.TFrame")
+        review_list_frame.grid(row=1, column=0, sticky="nsew", pady=(6, 6))
+        review_list_frame.columnconfigure(0, weight=1)
+        review_list_frame.rowconfigure(0, weight=1)
+
+        self.detection_tree = ttk.Treeview(
+            review_list_frame,
+            columns=("time", "word", "confidence"),
+            show="headings",
+            height=5,
+            selectmode="browse",
+            style="Review.Treeview",
+        )
+        self.detection_tree.heading("time", text="Timestamp")
+        self.detection_tree.heading("word", text="Word")
+        self.detection_tree.heading("confidence", text="Confidence")
+        self.detection_tree.column("time", width=98, anchor="w")
+        self.detection_tree.column("word", width=120, anchor="w")
+        self.detection_tree.column("confidence", width=86, anchor="center")
+        self.detection_tree.grid(row=0, column=0, sticky="nsew")
+        self.detection_tree.bind("<<TreeviewSelect>>", self._on_detection_selected)
+        self.detection_tree.bind("<Double-1>", self._preview_selected_detection)
+
+        review_scrollbar = ttk.Scrollbar(review_list_frame, orient=self.tk.VERTICAL, command=self.detection_tree.yview)
+        review_scrollbar.grid(row=0, column=1, sticky="ns")
+        self.detection_tree.configure(yscrollcommand=review_scrollbar.set)
+
+        review_actions = ttk.Frame(self.review_card, style="Panel.TFrame")
+        review_actions.grid(row=2, column=0, sticky="ew")
+        review_actions.columnconfigure(0, weight=1)
+        review_actions.columnconfigure(1, weight=1)
+        review_actions.columnconfigure(2, weight=1)
+        review_actions.columnconfigure(3, weight=1)
+
+        self.review_prev_btn = self._create_button(review_actions, "Prev", self._select_previous_detection, "Compact.TButton")
+        self.review_prev_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+        self.review_jump_btn = self._create_button(review_actions, "Jump", self._jump_to_selected_detection, "Compact.TButton")
+        self.review_jump_btn.grid(row=0, column=1, sticky="ew", padx=(0, 6))
+        self.review_preview_btn = self._create_button(review_actions, "Preview", self._preview_selected_detection, "Accent.TButton")
+        self.review_preview_btn.grid(row=0, column=2, sticky="ew", padx=(0, 6))
+        self.review_next_btn = self._create_button(review_actions, "Next", self._select_next_detection, "Compact.TButton")
+        self.review_next_btn.grid(row=0, column=3, sticky="ew")
+
+        ttk.Separator(self.bottom_frame, orient=self.tk.HORIZONTAL).grid(row=5, column=0, sticky="ew", pady=(0, 6))
+
         self.processing_card = ttk.Labelframe(self.bottom_frame, text="Processing Progress", style="Section.TLabelframe", padding=(12, 10))
-        self.processing_card.grid(row=2, column=0, sticky="ew")
+        self.processing_card.grid(row=6, column=0, sticky="ew")
         self.processing_card.columnconfigure(0, weight=1)
         self.processing_status_label = ttk.Label(self.processing_card, textvariable=self.processing_status_text, style="Title.TLabel")
         self.processing_status_label.grid(row=0, column=0, sticky="w")

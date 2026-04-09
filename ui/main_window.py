@@ -62,7 +62,7 @@ class VideoPlayer(
         self.generated_processing_audio_paths: set[Path] = set()
         self.generated_video_paths: set[Path] = set()
         self.filtering_in_progress = False
-        self.filter_mode = tk.StringVar(value=settings.filter_mode)
+        self.filter_mode = tk.StringVar(value=settings.filtering_mode)
         self.intelligence_mode = tk.StringVar(value=settings.filtering_mode)
         self.language_code = tk.StringVar(value="auto")
         self.intelligence_mode_description_text = tk.StringVar(
@@ -73,6 +73,10 @@ class VideoPlayer(
         self.current_frame = 0
         self.total_frames = 0
         self.fps = 25.0
+        self.timeline_detections = []
+        self.review_detections = []
+        self.selected_detection_index = -1
+        self._preview_after_id = None
 
         self.playback_start_time = 0.0
         self.playback_start_frame = 0
@@ -91,6 +95,7 @@ class VideoPlayer(
         self.filter_status_text = tk.StringVar(value="Filter: idle")
         self.processing_status_text = tk.StringVar(value="Ready")
         self.processing_pct_text = tk.StringVar(value="0%")
+        self.detection_review_summary_text = tk.StringVar(value="No detections yet")
         self.volume_value_text = tk.StringVar(value="100%")
         self.brightness_value_text = tk.StringVar(value="100%")
         self.bottom_panel_visible = True
@@ -100,6 +105,7 @@ class VideoPlayer(
         self._build_ui()
         self._apply_theme()
         self._load_profanity_words()
+        self._set_review_buttons_enabled(False)
         self.language_code.trace_add("write", self._on_language_changed)
         self.intelligence_mode.trace_add("write", self._update_intelligence_mode_description)
         self._update_intelligence_mode_description()
@@ -123,6 +129,13 @@ class VideoPlayer(
             self._seek_and_show(self.current_frame)
 
     def cleanup(self):
+        if self._preview_after_id is not None:
+            try:
+                self.root.after_cancel(self._preview_after_id)
+            except Exception:
+                pass
+            self._preview_after_id = None
+
         self.stop_video(reset_frame=False)
 
         if self.mixer_ready and hasattr(pygame.mixer.music, "unload"):

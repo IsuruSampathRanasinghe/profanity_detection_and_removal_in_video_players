@@ -108,6 +108,23 @@ class ThemeMixin:
         self.style.configure("TCheckbutton", background=p["panel"], foreground=p["text"], font=("Segoe UI", 10))
         self.style.map("TCheckbutton", foreground=[("active", p["text"]), ("selected", p["accent"])])
         self.style.configure("App.Horizontal.TProgressbar", troughcolor=p["surface_alt"], background=p["accent"], bordercolor=p["border"], lightcolor=p["accent"], darkcolor=p["accent"])
+        self.style.configure(
+            "Review.Treeview",
+            background=p["list_bg"],
+            fieldbackground=p["list_bg"],
+            foreground=p["text"],
+            bordercolor=p["border"],
+            rowheight=22,
+            font=("Segoe UI", 9),
+        )
+        self.style.configure(
+            "Review.Treeview.Heading",
+            background=p["surface"],
+            foreground=p["text"],
+            relief="flat",
+            font=("Segoe UI Semibold", 9),
+        )
+        self.style.map("Review.Treeview", background=[("selected", p["list_select"])], foreground=[("selected", "white")])
 
     def _apply_theme(self):
         p = self.palette
@@ -125,6 +142,7 @@ class ThemeMixin:
                 "bottom_frame",
                 "settings_section",
                 "profanity_card",
+                "review_card",
                 "processing_card",
             )
         ):
@@ -151,6 +169,7 @@ class ThemeMixin:
                 "brightness_value_label",
                 "selected_word_label",
                 "profanity_count_label",
+                "review_summary_label",
             )
         ):
             if widget is not None:
@@ -181,6 +200,9 @@ class ThemeMixin:
                 highlightcolor=p["accent"],
                 relief="flat",
             )
+        if hasattr(self, "timeline_marker_canvas"):
+            self.timeline_marker_canvas.configure(bg=p["panel"])
+            self._redraw_timeline_markers()
         self._render_empty_preview()
 
     def _on_theme_toggle(self):
