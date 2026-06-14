@@ -243,4 +243,4 @@ class ProfanityFilter:
             self.ml_model,
         )
 
-        return detections, count
+        return detections, count  
