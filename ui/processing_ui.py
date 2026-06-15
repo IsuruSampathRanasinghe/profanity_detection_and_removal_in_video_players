@@ -185,6 +185,7 @@ class ProcessingUIMixin:
 
     def _on_filter_done(self, clean_video_path: str, profanities_count: int, mode: str):
         self.clean_video_path = clean_video_path
+        self._set_clean_video_actions_enabled(True)
         detections = getattr(self.pipeline, "last_detections", [])
         self._refresh_timeline_markers(detections)
         self._refresh_detection_review(detections)

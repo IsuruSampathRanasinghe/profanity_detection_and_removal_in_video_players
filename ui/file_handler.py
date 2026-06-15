@@ -1,6 +1,7 @@
 """File and source switching mixin for opening/loading videos."""
 
 import os
+import shutil
 import cv2
 from tkinter import filedialog, messagebox
 
@@ -21,6 +22,7 @@ class FileHandlerMixin:
 
         self.original_video_path = file_path
         self.clean_video_path = None
+        self._set_clean_video_actions_enabled(False)
         self._clear_timeline_markers()
         self._clear_detection_review()
         self._set_filter_status("Filter: ready", self.palette["success"])
@@ -77,5 +79,35 @@ class FileHandlerMixin:
 
         self.play_video()
 
+    def save_clean_video(self):
+        if not self.clean_video_path or not os.path.exists(self.clean_video_path):
+            messagebox.showwarning("Warning", "Create a clean video first")
+            return
+
+        source_path = self.clean_video_path
+        default_name = os.path.basename(source_path)
+        target_path = filedialog.asksaveasfilename(
+            title="Save clean video as",
+            initialdir=str(os.path.dirname(source_path) or settings.outputs_dir),
+            initialfile=default_name,
+            defaultextension=".mp4",
+            filetypes=[("MP4 video", "*.mp4"), ("All files", "*.*")],
+        )
+        if not target_path:
+            return
+
+        try:
+            shutil.copy2(source_path, target_path)
+        except OSError as exc:
+            messagebox.showerror("Save Error", f"Could not save clean video:\n{exc}")
+            return
+
+        messagebox.showinfo("Saved", f"Clean video saved to:\n{target_path}")
+
     def _set_video_status(self, text: str):
         self.current_video_label_text.set(text)
+
+    def _set_clean_video_actions_enabled(self, enabled: bool):
+        button = getattr(self, "save_clean_btn", None)
+        if button is not None:
+            button.state(["!disabled"] if enabled else ["disabled"])

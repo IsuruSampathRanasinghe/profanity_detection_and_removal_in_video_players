@@ -103,6 +103,7 @@ class VideoPlayer(
         self.is_fullscreen = False
 
         self._build_ui()
+        self._set_clean_video_actions_enabled(False)
         self._apply_theme()
         self._load_profanity_words()
         self._set_review_buttons_enabled(False)
