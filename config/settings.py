@@ -35,6 +35,9 @@ class Settings:
     profanity_en_file: Path = field(init=False)
     profanity_si_file: Path = field(init=False)
     profanity_ta_file: Path = field(init=False)
+    profanity_en_adult_file: Path = field(init=False)
+    profanity_si_adult_file: Path = field(init=False)
+    profanity_ta_adult_file: Path = field(init=False)
 
     # Model & processing settings
     whisper_model_name: str = "small"
@@ -56,6 +59,9 @@ class Settings:
         object.__setattr__(self, "profanity_en_file", base / "data" / "profanity" / "en.txt")
         object.__setattr__(self, "profanity_si_file", base / "data" / "profanity" / "si.txt")
         object.__setattr__(self, "profanity_ta_file", base / "data" / "profanity" / "ta.txt")
+        object.__setattr__(self, "profanity_en_adult_file", base / "data" / "profanity" / "en_adult.txt")
+        object.__setattr__(self, "profanity_si_adult_file", base / "data" / "profanity" / "si_adult.txt")
+        object.__setattr__(self, "profanity_ta_adult_file", base / "data" / "profanity" / "ta_adult.txt")
 
         self._validate()
 

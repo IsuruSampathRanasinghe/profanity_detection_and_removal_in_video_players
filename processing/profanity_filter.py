@@ -8,6 +8,7 @@ from typing import Any
 
 from models.ml_profanity_model import MLProfanityModel
 from utils.file_manager import read_profanity_words
+from config.settings import settings
 
 
 # =========================
@@ -159,8 +160,37 @@ def kids_filter(segments, word_list, use_ml_model, ml_model):
 def adult_filter(segments):
     detections = []
 
+    # Try to load adult-level words from per-language adult files; fall back to hardcoded set
+    def _get_adult_set_for_language(language: str | None):
+        try:
+            if language == "en":
+                path = settings.profanity_en_adult_file
+            elif language == "si":
+                path = settings.profanity_si_adult_file
+            elif language == "ta":
+                path = settings.profanity_ta_adult_file
+            else:
+                path = None
+
+            if path and path.exists():
+                return {normalize(w) for w in read_profanity_words(path)}
+        except Exception:
+            pass
+
+        return {normalize(w) for w in ADULT_STRONG_WORDS}
+
+    # The filter caller may pass language via the outer scope; attempt to detect it from segment metadata
+    # If segments include 'language' at top-level, use it; otherwise, use None.
+    language = None
+    if segments and isinstance(segments, list):
+        first = segments[0]
+        if isinstance(first, dict) and "language" in first:
+            language = first.get("language")
+
+    adult_set = _get_adult_set_for_language(language)
+
     for seg in segments:
-        matches = detect_word(seg, ADULT_STRONG_WORDS, "adult", 0.95)
+        matches = detect_word(seg, adult_set, "adult", 0.95)
         detections.extend(matches)
 
     return detections, len(detections)
