@@ -9,6 +9,9 @@ import pygame
 from config.settings import settings
 from processing.audio_extractor import extract_audio
 from utils.file_manager import safe_delete
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AudioManagerMixin:
@@ -28,8 +31,8 @@ class AudioManagerMixin:
                 pygame.mixer.music.stop()
                 if hasattr(pygame.mixer.music, "unload"):
                     pygame.mixer.music.unload()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to stop/unload mixer: %s", e)
 
             settings.audio_dir.mkdir(parents=True, exist_ok=True)
             base_name = Path(video_path).stem
@@ -40,7 +43,7 @@ class AudioManagerMixin:
             self.generated_audio_paths.add(preview_audio_path)
             self._set_audio_status("Audio: ready", self.palette["success"])
         except Exception as exc:
-            print(f"Audio extraction failed: {exc}")
+            logger.exception("Audio extraction failed: %s", exc)
             self.audio_path = None
             self._set_audio_status("Audio: extraction failed", self.palette["danger"])
         finally:
@@ -57,21 +60,22 @@ class AudioManagerMixin:
             self._set_audio_status("Audio: not available", self.palette["warning"])
             return
 
-        try:
-            pygame.mixer.music.load(self.audio_path)
-            start_sec = self.current_frame / self.fps if self.fps > 0 else 0
-            if start_sec > 0:
-                try:
-                    pygame.mixer.music.play(loops=0, start=start_sec)
-                except Exception:
+            try:
+                pygame.mixer.music.load(self.audio_path)
+                start_sec = self.current_frame / self.fps if self.fps > 0 else 0
+                if start_sec > 0:
+                    try:
+                        pygame.mixer.music.play(loops=0, start=start_sec)
+                    except Exception as e:
+                        logger.debug("Failed to start at position, falling back: %s", e)
+                        pygame.mixer.music.play(loops=0)
+                else:
                     pygame.mixer.music.play(loops=0)
-            else:
-                pygame.mixer.music.play(loops=0)
-            pygame.mixer.music.set_volume(self.volume)
-            self._set_audio_status("Audio: playing", self.palette["success"])
-        except Exception as exc:
-            print(f"Audio seek failed: {exc}")
-            self._set_audio_status("Audio: playback failed", self.palette["danger"])
+                pygame.mixer.music.set_volume(self.volume)
+                self._set_audio_status("Audio: playing", self.palette["success"])
+            except Exception as exc:
+                logger.exception("Audio seek/play failed: %s", exc)
+                self._set_audio_status("Audio: playback failed", self.palette["danger"])
 
     def _set_audio_status(self, text: str, color: str | None = None):
         self.audio_status_text.set(text)

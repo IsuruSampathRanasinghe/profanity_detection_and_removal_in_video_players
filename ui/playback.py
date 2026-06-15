@@ -5,6 +5,9 @@ import time
 from tkinter import messagebox
 
 import pygame
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class PlaybackMixin:
@@ -94,14 +97,15 @@ class PlaybackMixin:
                 if start_sec > 0:
                     try:
                         pygame.mixer.music.play(loops=0, start=start_sec)
-                    except Exception:
+                    except Exception as e:
+                        logger.debug("Failed to start playback at %s, falling back: %s", start_sec, e)
                         pygame.mixer.music.play(loops=0)
                 else:
                     pygame.mixer.music.play(loops=0)
                 pygame.mixer.music.set_volume(self.volume)
                 self._set_audio_status("Audio: playing", self.palette["success"])
             except Exception as exc:
-                print(f"Audio playback failed: {exc}")
+                logger.exception("Audio playback failed: %s", exc)
                 self._set_audio_status("Audio: playback failed", self.palette["danger"])
         elif not self.mixer_ready:
             self._set_audio_status("Audio: mixer unavailable", self.palette["danger"])
@@ -142,8 +146,8 @@ class PlaybackMixin:
             if self.mixer_ready and pygame.mixer.music.get_busy():
                 try:
                     pygame.mixer.music.pause()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logger.debug("Failed to pause mixer: %s", e)
 
     def _on_timeline_release(self, _event):
         if not self.cap:

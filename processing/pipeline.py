@@ -2,8 +2,11 @@
 
 from dataclasses import dataclass
 from typing import Callable
+import logging
 
 from config.settings import Settings, settings
+
+logger = logging.getLogger(__name__)
 from processing.audio_cleaner import clean_audio
 from processing.audio_extractor import extract_audio
 from processing.profanity_filter import DetectionResult, ProfanityFilter
@@ -40,10 +43,10 @@ class ProfanityProcessingPipeline:
         )
 
     def _print_all_words(self, transcription_result):
-        print("\n--- All Words from Transcription ---\n")
+        logger.debug("--- All Words from Transcription ---")
         segments = transcription_result.get("segments", [])
         if not segments:
-            print("❌ No segments found in transcription_result")
+            logger.debug("No segments found in transcription_result")
             return
 
         found_words = False
@@ -54,10 +57,10 @@ class ProfanityProcessingPipeline:
                 word = w.get("word", "")
                 start = w.get("start", 0)
                 end = w.get("end", 0)
-                print(f"Word: {word} | Start: {start:.2f}s | End: {end:.2f}s", flush=True)
+                logger.debug("Word: %s | Start: %.2f s | End: %.2f s", word, start, end)
 
         if not found_words:
-            print("❌ No word-level timestamps found inside segments")
+            logger.debug("No word-level timestamps found inside segments")
 
     def process_video(
         self,
@@ -79,7 +82,7 @@ class ProfanityProcessingPipeline:
 
         self._progress(on_progress, 35, "Transcribing audio...")
         transcription_result = self.transcriber.transcribe(str(paths["extracted_audio"]), language=language)
-        print("DEBUG transcription_result:", transcription_result, flush=True)
+        logger.debug("transcription_result: %s", transcription_result)
         self._print_all_words(transcription_result)
 
         self._progress(on_progress, 55, f"Detecting profanity ({detector_mode})...")

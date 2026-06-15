@@ -1,4 +1,7 @@
 """Theme and styling mixin for the Tkinter video player."""
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ThemeMixin:
@@ -149,11 +152,12 @@ class ThemeMixin:
             if widget is not None:
                 try:
                     widget.configure(style="App.TFrame")
-                except Exception:
+                except Exception as e:
+                    logger.debug("Widget configure(style) failed for %s: %s", widget, e)
                     try:
                         widget.configure(bg=p["bg"])
-                    except Exception:
-                        pass
+                    except Exception as e2:
+                        logger.debug("Widget configure(bg) fallback failed for %s: %s", widget, e2)
 
         for widget in (
             getattr(self, name, None)
@@ -175,11 +179,12 @@ class ThemeMixin:
             if widget is not None:
                 try:
                     widget.configure(background=p["panel"], foreground=p["text"])
-                except Exception:
+                except Exception as e:
+                    logger.debug("Label configure failed for %s: %s", widget, e)
                     try:
                         widget.configure(bg=p["panel"], fg=p["text"])
-                    except Exception:
-                        pass
+                    except Exception as e2:
+                        logger.debug("Label fallback configure failed for %s: %s", widget, e2)
 
         if hasattr(self, "canvas"):
             self.canvas.configure(bg=p["video_bg"], highlightbackground=p["border"], highlightthickness=1)
@@ -188,8 +193,8 @@ class ThemeMixin:
         if hasattr(self, "profanity_entry"):
             try:
                 self.profanity_entry.configure(highlightbackground=p["border"], highlightcolor=p["accent"])
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to configure profanity_entry: %s", e)
         if hasattr(self, "profanity_listbox"):
             self.profanity_listbox.configure(
                 background=p["list_bg"],

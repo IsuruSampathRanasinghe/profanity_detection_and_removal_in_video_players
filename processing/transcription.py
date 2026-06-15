@@ -14,6 +14,9 @@ from urllib.parse import urlparse
 
 import whisper
 import torch
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class WhisperTranscriber:
@@ -25,7 +28,7 @@ class WhisperTranscriber:
 
         # 🔥 Detect GPU or CPU
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
-        print(f"🔥 Using device: {self.device}")
+        logger.info("Using device: %s", self.device)
 
     # =========================
     # ERROR HANDLING
@@ -51,11 +54,11 @@ class WhisperTranscriber:
         model_file = self._model_cache_dir() / filename
 
         try:
-            if model_file.exists():
-                print(f"🗑️ Removing corrupted model: {filename}")
-                model_file.unlink()
-        except Exception:
-            pass
+                if model_file.exists():
+                    logger.info("Removing corrupted model: %s", filename)
+                    model_file.unlink()
+        except Exception as e:
+            logger.debug("Failed removing cached model file %s: %s", model_file, e)
 
     def _load_with_recovery(self, model_name: str):
         """Load model with auto recovery if corrupted"""
@@ -65,12 +68,12 @@ class WhisperTranscriber:
             # Move model to correct device
             model = model.to(self.device)
 
-            print(f"✅ Loaded model: {model_name} on {self.device}")
+            logger.info("Loaded model: %s on %s", model_name, self.device)
             return model
 
         except Exception as e:
             if self._is_checksum_error(e):
-                print("⚠️ Model corrupted. Re-downloading...")
+                logger.warning("Model corrupted. Re-downloading...")
                 self._delete_cached_model_file(model_name)
 
                 model = whisper.load_model(model_name)
@@ -189,15 +192,15 @@ class WhisperTranscriber:
                 "best_of": 5,
             })
 
-        print("🎧 Transcribing...")
+        logger.info("Transcribing audio: %s", audio_path)
         result = model.transcribe(**kwargs)
 
-        print(f"🌐 Detected language: {result.get('language')}")
+        logger.info("Detected language: %s", result.get('language'))
 
         # Retry with large model if poor quality
         if language in {"si", "ta"} and self._looks_bad(result, language):
             try:
-                print("⚠️ Retrying with LARGE model...")
+                logger.warning("Retrying with LARGE model...")
 
                 fallback = self._get_or_load_model("large")
                 better = fallback.transcribe(**kwargs)
@@ -205,8 +208,8 @@ class WhisperTranscriber:
                 if not self._looks_bad(better, language):
                     return better
 
-            except Exception:
-                pass
+            except Exception as e:
+                logger.exception("Retry with large model failed: %s", e)
 
         return result
 

@@ -2,8 +2,12 @@
 
 import argparse
 
+import logging
+
 from processing.pipeline import ProfanityProcessingPipeline
 from ui.main_window import launch_video_player
+
+logger = logging.getLogger(__name__)
 
 
 def run_cli(args: argparse.Namespace) -> None:
@@ -12,7 +16,7 @@ def run_cli(args: argparse.Namespace) -> None:
     pipeline = ProfanityProcessingPipeline()
 
     def progress(percent: int, message: str):
-        print(f"[{percent:>3}%] {message}")
+        logger.info("[%3d%%] %s", percent, message)
 
     # Handle language
     selected_language = None if args.language == "auto" else args.language
@@ -26,13 +30,12 @@ def run_cli(args: argparse.Namespace) -> None:
             on_progress=progress,
         )
 
-        print("\n✅ Processing complete")
-        print(f"🎬 Output video : {output_path}")
-        print(f"🚨 Detections   : {count}")
+        logger.info("Processing complete")
+        logger.info("Output video : %s", output_path)
+        logger.info("Detections   : %s", count)
 
     except Exception as e:
-        print("\n❌ Error occurred during processing")
-        print(str(e))
+        logger.exception("Error occurred during processing: %s", e)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -81,6 +84,9 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     parser = build_parser()
     args = parser.parse_args()
+
+    # Configure basic logging for CLI and UI runs
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 
     # If GUI requested OR no input → launch UI
     if args.gui or not args.input:

@@ -3,6 +3,9 @@
 from pathlib import Path
 import threading
 from tkinter import messagebox
+import logging
+
+logger = logging.getLogger(__name__)
 
 from config.settings import settings
 from utils.file_manager import build_processing_paths
@@ -129,8 +132,8 @@ class ProcessingUIMixin:
         if self._preview_after_id is not None:
             try:
                 self.root.after_cancel(self._preview_after_id)
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Failed to cancel preview after_id: %s", e)
             self._preview_after_id = None
 
         target_frame = int(preview_start * self.fps)
@@ -176,6 +179,7 @@ class ProcessingUIMixin:
             )
             self.root.after(0, lambda: self._on_filter_done(output_path, count, self.intelligence_mode.get()))
         except Exception as exc:
+            logger.exception("Filter worker failed: %s", exc)
             self.root.after(0, lambda e=exc: self._on_filter_error(str(e)))
         finally:
             self.filtering_in_progress = False

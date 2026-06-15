@@ -9,6 +9,9 @@ from typing import Any
 from models.ml_profanity_model import MLProfanityModel
 from utils.file_manager import read_profanity_words
 from config.settings import settings
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 # =========================
@@ -174,8 +177,8 @@ def adult_filter(segments):
 
             if path and path.exists():
                 return {normalize(w) for w in read_profanity_words(path)}
-        except Exception:
-            pass
+        except Exception as e:
+            logger.exception("Error loading adult words from %s", path)
 
         return {normalize(w) for w in ADULT_STRONG_WORDS}
 
