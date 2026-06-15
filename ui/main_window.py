@@ -64,7 +64,11 @@ class VideoPlayer(
         self.filtering_in_progress = False
         self.filter_mode = tk.StringVar(value=settings.filtering_mode)
         self.intelligence_mode = tk.StringVar(value=settings.filtering_mode)
-        self.language_code = tk.StringVar(value="auto")
+        # Internal code (en/si/ta) and user-facing display name
+        self.language_code = tk.StringVar(value="en")
+        self.language_display = tk.StringVar(value="English")
+        self._display_to_code = {"English": "en", "Sinhala": "si", "Tamil": "ta"}
+        self._code_to_display = {v: k for k, v in self._display_to_code.items()}
         self.intelligence_mode_description_text = tk.StringVar(
             value="Strict filtering (removes all offensive words, including masked words)"
         )
@@ -108,6 +112,7 @@ class VideoPlayer(
         self._load_profanity_words()
         self._set_review_buttons_enabled(False)
         self.language_code.trace_add("write", self._on_language_changed)
+        self.language_display.trace_add("write", self._on_language_display_changed)
         self.intelligence_mode.trace_add("write", self._update_intelligence_mode_description)
         self._update_intelligence_mode_description()
         self.root.bind("<Left>", self._on_skip_backward_key)
@@ -128,6 +133,13 @@ class VideoPlayer(
         self.brightness_value_text.set(f"{int(self.brightness * 100)}%")
         if self.cap and not self.is_playing:
             self._seek_and_show(self.current_frame)
+
+    def _on_language_display_changed(self, *_args):
+        # Map user-facing selection to internal code and trigger existing change handler
+        display = self.language_display.get().strip()
+        code = self._display_to_code.get(display, "en")
+        if self.language_code.get() != code:
+            self.language_code.set(code)
 
     def cleanup(self):
         if self._preview_after_id is not None:

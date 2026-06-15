@@ -79,9 +79,9 @@ class LayoutMixin:
         ttk.Label(language_row, text="Language", style="SectionLabel.TLabel").pack(side=self.tk.LEFT, padx=(0, 6))
         self.language_combo = ttk.Combobox(
             language_row,
-            textvariable=self.language_code,
-            values=("auto", "en", "si", "ta"),
-            width=7,
+            textvariable=self.language_display,
+            values=("English", "Sinhala", "Tamil"),
+            width=9,
             state="readonly",
         )
         self.language_combo.pack(side=self.tk.LEFT)
