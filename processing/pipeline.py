@@ -74,7 +74,7 @@ class ProfanityProcessingPipeline:
         """Process a video to detect and censor profanity, returning output path and detection count."""
         ensure_directories([self.cfg.audio_dir, self.cfg.outputs_dir])
         audio_mode = replacement_mode or self.cfg.filter_mode
-        detector_mode = intelligence_mode or detection_mode or self.cfg.filtering_mode
+        detector_mode = intelligence_mode or self.cfg.filtering_mode
         paths = build_processing_paths(video_path, self.cfg)
 
         self._progress(on_progress, 10, "Extracting audio...")

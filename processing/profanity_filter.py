@@ -224,7 +224,7 @@ def filter_profanity(
 
     mode = (mode or "custom").lower()
 
-    if mode in {"kids", "ai"}:
+    if mode == "kids":
         return kids_filter(segments, word_list, use_ml_model, ml_model)
 
     if mode == "adult":
@@ -261,7 +261,7 @@ class ProfanityFilter:
 
         return {normalize(w) for w in read_profanity_words(self.profanity_file)}
 
-    def detect(self, transcription_result, mode="ai", use_ml_model=True, language=None):
+    def detect(self, transcription_result, mode="kids", use_ml_model=True, language=None):
         segments = transcription_result.get("segments", [])
         if not segments:
             return [], 0

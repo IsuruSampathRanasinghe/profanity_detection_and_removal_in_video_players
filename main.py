@@ -42,7 +42,7 @@ def build_parser() -> argparse.ArgumentParser:
     """Build CLI argument parser."""
     
     parser = argparse.ArgumentParser(
-        description="AI-based profanity detection and removal for videos"
+        description="Rule-based profanity detection and removal for videos"
     )
 
     parser.add_argument(
@@ -66,9 +66,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     parser.add_argument(
         "--detection-mode",
-        choices=["rule-based", "ai"],
+        choices=["rule-based"],
         default="rule-based",
-        help="Detection strategy (rule-based or AI)",
+        help="Detection strategy (rule-based only)",
     )
 
     parser.add_argument(

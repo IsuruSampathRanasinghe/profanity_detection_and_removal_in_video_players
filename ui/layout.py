@@ -183,7 +183,7 @@ class LayoutMixin:
 
         kids_radio = ttk.Radiobutton(intelligence_card, text="Kids (strict)", variable=self.intelligence_mode, value="kids", style="Toggle.TRadiobutton")
         kids_radio.grid(row=1, column=0, sticky="w", pady=(6, 2))
-        Tooltip(kids_radio, "Strict mode: Filters all profanity words, masked patterns (f***, sh!t), and optional AI detection. Best for children.")
+        Tooltip(kids_radio, "Strict mode: Filters all profanity words and masked patterns (f***, sh!t). Best for children.")
 
         adult_radio = ttk.Radiobutton(intelligence_card, text="Adult (moderate)", variable=self.intelligence_mode, value="adult", style="Toggle.TRadiobutton")
         adult_radio.grid(row=2, column=0, sticky="w", pady=(0, 2))

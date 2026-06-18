@@ -9,7 +9,7 @@ from pathlib import Path
 # =========================
 DEFAULT_FILTERING_MODE = "kids"   # kids | adult | custom
 DEFAULT_REPLACEMENT_MODE = "mute" # mute | beep
-DEFAULT_DETECTION_MODE = "ai"     # rule-based | ai
+DEFAULT_DETECTION_MODE = "rule-based"     # rule-based only
 DEFAULT_USE_ML = True
 
 
@@ -71,7 +71,7 @@ class Settings:
     def _validate(self):
         valid_filter_modes = {"kids", "adult", "custom"}
         valid_replacement_modes = {"mute", "beep"}
-        valid_detection_modes = {"rule-based", "ai"}
+        valid_detection_modes = {"rule-based"}
 
         if self.filtering_mode not in valid_filter_modes:
             raise ValueError(f"Invalid filtering_mode: {self.filtering_mode}")
